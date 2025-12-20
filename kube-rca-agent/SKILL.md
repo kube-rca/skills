@@ -1,9 +1,9 @@
 ---
 name: kube-rca-agent
 description: |
-  Use when working on the kube-rca agent service.
-  Triggers: agent/ directory, Go Gin server for analysis, Alertmanager payload analysis,
-  agent API endpoints, internal/ handler/service/model layers, go.mod changes in agent repo.
+  Go-based analysis service for Kube-RCA. Receives Alertmanager payloads,
+  performs RCA (Root Cause Analysis), and returns results.
+  Triggers: agent/ directory, internal/ handler/service/model layers, go.mod, main.go.
 ---
 
 # Kube-RCA Agent
@@ -16,18 +16,29 @@ and returns basic analysis results.
 ```
 agent/
 ├── main.go
+├── go.mod
+├── go.sum
+├── Dockerfile
 ├── internal/
 │   ├── handler/
 │   │   ├── analysis.go
 │   │   └── health.go
 │   ├── service/
-│   │   └── analysis.go
+│   │   ├── analysis.go
+│   │   └── analysis_test.go
 │   └── model/
 │       ├── alert.go
 │       └── analysis.go
-├── go.mod
-└── Dockerfile
+└── .github/
+    └── workflows/
+        └── ci.yaml
 ```
+
+## Technology Stack
+
+- **Language**: Go 1.22+
+- **Framework**: Gin Web Framework
+- **CI/CD**: GitHub Actions (Docker, ECR, Helm update)
 
 ## Architecture Pattern
 
@@ -35,11 +46,24 @@ agent/
 
 ## Key Endpoints
 
-- `POST /analyze/alertmanager`
-- `GET /ping`
-- `GET /healthz`
-- `GET /`
+- `GET /ping`: Health check (returns pong)
+- `GET /healthz`: Liveness probe
+- `GET /`: Root info
+- `POST /analyze/alertmanager`: Receive and analyze Alertmanager webhooks
 
 ## Environment Variables
 
-- `PORT` (default 8082)
+- `PORT` (default: `8082`)
+
+## Development Commands
+
+```bash
+# Initialize/Tidy dependencies
+go mod tidy
+
+# Run locally
+go run .
+
+# Run tests
+go test ./...
+```

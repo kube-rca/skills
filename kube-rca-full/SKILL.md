@@ -51,7 +51,7 @@ kube-rca/
 ├── helm-charts/      # Helm charts (Argo CD, kube-prometheus-stack, Loki, PostgreSQL, kube-rca)
 ├── k8s-resources/    # Argo CD Applications, External Secrets
 ├── terraform/        # Terraform Cloud envs (terraform/envs/dev/)
-├── agent/            # Separate agent repository
+├── agent/            # Go 1.22 + Gin API server (Analysis service)
 ├── skills/           # Agent skill definitions
 └── .github/          # Docs and diagrams
 ```
@@ -84,6 +84,7 @@ kube-rca/
 |------|-----|------------|
 | helm-charts | backend | `charts/kube-rca` requires backend image repository/tag values for the Deployment. |
 | helm-charts | frontend | `charts/kube-rca` requires frontend image repository/tag values for the Deployment. |
+| helm-charts | agent | `charts/kube-rca` requires agent image repository/tag values for the Deployment. |
 | helm-charts | k8s-resources | Backend Slack Secret defaults to `kube-rca-slack` with keys `kube-rca-slack-token`, `kube-rca-slack-channel-id`. |
 
 ## Environment Variables
@@ -91,6 +92,9 @@ kube-rca/
 ### Backend
 - `SLACK_BOT_TOKEN` - Slack API token
 - `SLACK_CHANNEL_ID` - Target channel
+
+### Agent
+- `PORT` - Service port (default: 8082)
 
 ## Quick Commands
 
@@ -103,6 +107,9 @@ cd backend && go test ./...
 cd frontend && npm ci
 cd frontend && npm run dev
 cd frontend && npm run build && npm run lint
+
+# Agent
+cd agent && go mod tidy && go run .
 
 # Infra (requires credentials/workspace access)
 cd terraform/envs/dev/iam && terraform init && terraform plan
