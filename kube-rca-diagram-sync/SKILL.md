@@ -50,6 +50,8 @@ signals only to label what is already built, not to block target design.
    - Keep "implemented" versus "planned" clearly separated.
    - Avoid implying planned items are already shipped.
 5. Keep Mermaid syntax valid and fenced as mermaid code blocks.
+   - For flowchart labels, keep single-line text. Avoid `\n`, `<br/>`, and
+     parentheses in edge labels; prefer suffixes like `- 계획` or `[계획]`.
 6. Re-check diagrams in GitHub preview for rendering and consistency.
 
 ## Consistency Checks
