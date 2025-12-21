@@ -4,7 +4,7 @@ description: |
   Use when refreshing or updating existing skills under skills/ to match the
   current code-kube-rca repository state, commands, and architecture. Triggers:
   requests to sync skill docs after repo changes, align skill descriptions with
-  backend/frontend/helm/terraform/full repositories, or validate that skill
+  agent/backend/frontend/helm/terraform/full repositories, or validate that skill
   metadata reflects the current project layout.
 ---
 
@@ -28,6 +28,7 @@ and commands reflect the verified state of the code-kube-rca repositories.
 ## Target Mapping (default, verify before use)
 
 - `kube-rca-backend` -> `backend/`
+- `kube-rca-agent` -> `agent/`
 - `kube-rca-frontend` -> `frontend/`
 - `kube-rca-helm` -> `helm-charts/`
 - `kube-rca-terraform` -> `terraform/`
@@ -41,6 +42,7 @@ Prefer direct inspection. Examples:
 
 ```bash
 rg --files backend
+rg --files agent
 rg --files frontend
 rg --files helm-charts
 rg --files terraform
@@ -58,7 +60,7 @@ Generate a compact report per target skill to speed up updates.
 python3 skills/kube-rca-skill-sync/scripts/collect_repo_context.py \
   --repo-root . \
   --skills-dir skills \
-  --targets kube-rca-backend,kube-rca-frontend
+  --targets kube-rca-agent,kube-rca-backend,kube-rca-frontend
 ```
 
 Read the report to confirm mapped paths, top-level entries, and verified files.

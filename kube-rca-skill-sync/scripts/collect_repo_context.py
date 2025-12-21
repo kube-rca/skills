@@ -24,6 +24,7 @@ SKIP_DIRS = {
 
 DEFAULT_MAPPING = {
     "kube-rca-backend": "backend",
+    "kube-rca-agent": "agent",
     "kube-rca-frontend": "frontend",
     "kube-rca-helm": "helm-charts",
     "kube-rca-terraform": "terraform",
@@ -38,6 +39,14 @@ KEY_ITEMS = {
         "Dockerfile",
         "kubernetes",
         "README.md",
+    ],
+    "kube-rca-agent": [
+        "pyproject.toml",
+        "app",
+        "tests",
+        "Dockerfile",
+        "README.md",
+        "Makefile",
     ],
     "kube-rca-frontend": [
         "package.json",
