@@ -60,7 +60,7 @@ agent/
 - `GET /ping`: Health check (returns pong)
 - `GET /healthz`: Liveness probe
 - `GET /`: Root info
-- `POST /analyze/alertmanager`: Receive and analyze Alertmanager webhooks
+- `POST /analyze`: Receive and analyze Alertmanager webhooks
 
 ## Environment Variables
 
