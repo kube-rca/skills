@@ -21,7 +21,9 @@ agent/
 │   │   └── health.py
 │   ├── clients/
 │   │   ├── k8s.py
-│   │   └── strands_agent.py
+│   │   ├── prometheus.py
+│   │   ├── strands_agent.py
+│   │   └── strands_patch.py
 │   ├── core/
 │   │   ├── config.py
 │   │   ├── dependencies.py
@@ -70,6 +72,11 @@ agent/
 - `K8S_API_TIMEOUT_SECONDS` (default: `5`)
 - `K8S_EVENT_LIMIT` (default: `20`)
 - `K8S_LOG_TAIL_LINES` (default: `50`)
+- `PROMETHEUS_LABEL_SELECTOR` (default: `app=kube-prometheus-stack-prometheus`)
+- `PROMETHEUS_NAMESPACE_ALLOWLIST` (default: empty = all)
+- `PROMETHEUS_PORT_NAME` (default: empty = auto)
+- `PROMETHEUS_SCHEME` (default: `http`)
+- `PROMETHEUS_HTTP_TIMEOUT_SECONDS` (default: `5`)
 
 ## Development Commands
 
