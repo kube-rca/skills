@@ -28,9 +28,12 @@ helm-charts/
 
 ## Chart Notes
 
-- `charts/kube-rca/` includes templates for backend, agent, and frontend workloads plus Slack Secret handling.
-- `charts/kube-prometheus-stack/kube-rca-values.yaml` configures the Alertmanager receiver for the backend webhook.
-- `charts/argo-applications/` and `charts/alloy/` include `kube-rca-values.yaml` overrides.
+- `charts/kube-rca/` includes backend/agent/frontend templates, Slack Secret, and agent RBAC + ConfigMap/Secret.
+- `charts/kube-prometheus-stack/kube-rca-values.yaml` configures Alertmanager webhook to `POST /webhook/alertmanager`.
+- `kube-rca-values.yaml` overrides exist in:
+  `charts/argo-applications/`, `charts/argo-cd/`, `charts/alloy/`,
+  `charts/kube-prometheus-stack/`, `charts/kube-rca/`, `charts/loki/`,
+  `charts/postgresql/`.
 
 ## Validation Command
 

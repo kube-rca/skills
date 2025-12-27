@@ -24,27 +24,33 @@ backend/
 ├── internal/
 │   ├── handler/
 │   │   ├── alert.go             # POST /webhook/alertmanager
-│   │   └── health.go            # GET /ping, GET /
+│   │   ├── health.go            # GET /ping, GET /
+│   │   └── rca.go               # /api/v1/incidents*
 │   ├── service/
-│   │   ├── alert.go             # Alert filtering, business logic
-│   │   └── agent.go             # Agent 분석 요청 및 Slack 응답 처리
+│   │   ├── alert.go             # Alert filtering, Slack 전송
+│   │   ├── agent.go             # Agent 분석 요청 및 Slack 응답 처리
+│   │   └── rca.go               # Incident 조회/수정
 │   ├── client/
 │   │   ├── slack.go             # Slack API client, thread management
 │   │   ├── slack_alert.go       # Alert-specific Slack formatting
 │   │   └── agent.go             # Agent HTTP client (POST /analyze)
 │   ├── db/
-│   │   └── postgres.go          # PostgreSQL connection pool (pgxpool)
+│   │   ├── postgres.go          # PostgreSQL connection pool (pgxpool)
+│   │   └── rca.go               # Incident queries
 │   └── model/
-│       └── alert.go             # AlertmanagerWebhook, Alert structs
+│       ├── alert.go             # AlertmanagerWebhook, Alert structs
+│       └── rca.go               # Incident DTOs
 ├── go.mod
 └── Dockerfile
 ```
 
 ## Architecture Pattern
 
-**Dependency Flow**: `handler → service → client`
+**Dependency Flow**: `handler → service → client/db`
 
-**Initialization Order**: `db → client → service → handler`
+**Initialization Order**:
+- `db pool → rca service → rca handler`
+- `client → service → handler`
 
 ## Key Components
 
@@ -56,11 +62,11 @@ backend/
 ### Alert Service
 - Filters alerts (shouldSendToSlack)
 - Coordinates with SlackClient for delivery
-- Triggers AgentService for AI analysis
+- Triggers AgentService asynchronously (goroutine per alert)
 - Returns sent/failed counts
 
 ### Agent Service
-- Calls AgentClient.RequestAnalysis (동기 호출)
+- Invoked in goroutine; performs sync AgentClient.RequestAnalysis
 - Sends analysis result to Slack thread via SlackClient.SendToThread
 
 ### Agent Client
@@ -76,6 +82,13 @@ backend/
 ### PostgreSQL Connection
 - Uses pgxpool for connection pooling
 - Supports DATABASE_URL or individual PG* env vars
+- Backend starts after successful DB ping (missing envs cause startup failure)
+
+### RCA API Handler
+- `GET /api/v1/incidents`
+- `GET /api/v1/incidents/:id`
+- `PUT /api/v1/incidents/:id`
+- `POST /api/v1/incidents/mock` (creates mock incident)
 
 ## Environment Variables
 
@@ -114,22 +127,19 @@ slackClient.DeleteThreadTS(fingerprint)
 
 ### Agent Analysis Flow
 ```go
-// AgentService.RequestAnalysis (동기 호출)
-resp, err := s.agentClient.RequestAnalysis(alert, threadTS)
-s.slackClient.SendToThread(threadTS, resp.Analysis)
+// AlertService에서 goroutine으로 호출
+threadTS, _ := s.slackClient.GetThreadTS(alert.Fingerprint)
+go s.agentService.RequestAnalysis(alert, threadTS)
 ```
 
 ### Alert Status Colors
 - critical: `#dc3545` (red)
 - warning: `#ffc107` (yellow)
 - resolved: `#36a64f` (green)
+- default: `#17a2b8` (blue)
 
 ## Dependencies
 
 - `gin-gonic/gin` - HTTP router
 - `jackc/pgx/v5` - PostgreSQL driver
 - Go 1.22+
-
-## Future Plans
-
-- K8s client for cluster state inspection

@@ -29,6 +29,8 @@ DEFAULT_MAPPING = {
     "kube-rca-helm": "helm-charts",
     "kube-rca-terraform": "terraform",
     "kube-rca-full": ".",
+    "kube-rca-diagram-sync": ".github",
+    "kube-rca-skill-sync": "skills",
 }
 
 KEY_ITEMS = {
@@ -77,6 +79,23 @@ KEY_ITEMS = {
         "terraform",
         "k8s-resources",
         "AGENTS.md",
+    ],
+    "kube-rca-diagram-sync": [
+        "ARCHITECTURE.md",
+        "PROJECT.md",
+        "README.md",
+        "diagrams",
+        "img",
+    ],
+    "kube-rca-skill-sync": [
+        "kube-rca-agent",
+        "kube-rca-backend",
+        "kube-rca-diagram-sync",
+        "kube-rca-frontend",
+        "kube-rca-full",
+        "kube-rca-helm",
+        "kube-rca-skill-sync",
+        "kube-rca-terraform",
     ],
 }
 

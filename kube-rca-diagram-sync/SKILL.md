@@ -21,7 +21,7 @@ signals only to label what is already built, not to block target design.
 - .github/PROJECT.md for goals, scope, and roadmap (to-be)
 - .github/ARCHITECTURE.md for current runtime flow (as-is)
 - backend/main.go and backend/internal/ for implemented endpoints and Slack integration
-- agent/main.go and agent/internal/ for analysis service endpoints
+- agent/app/main.py and agent/app/api/ for analysis service endpoints
 - frontend/src/App.tsx for whether UI uses mock data or backend APIs
 - helm-charts/ and k8s-resources/ when diagrams cover deployment topology
 

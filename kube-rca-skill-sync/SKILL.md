@@ -33,6 +33,8 @@ and commands reflect the verified state of the code-kube-rca repositories.
 - `kube-rca-helm` -> `helm-charts/`
 - `kube-rca-terraform` -> `terraform/`
 - `kube-rca-full` -> repo root
+- `kube-rca-diagram-sync` -> `.github/`
+- `kube-rca-skill-sync` -> `skills/`
 
 If any path is missing, stop and ask for clarification.
 
@@ -46,6 +48,8 @@ rg --files agent
 rg --files frontend
 rg --files helm-charts
 rg --files terraform
+rg --files .github
+rg --files skills
 sed -n '1,200p' AGENTS.md
 ```
 
@@ -59,8 +63,7 @@ Generate a compact report per target skill to speed up updates.
 ```bash
 python3 skills/kube-rca-skill-sync/scripts/collect_repo_context.py \
   --repo-root . \
-  --skills-dir skills \
-  --targets kube-rca-agent,kube-rca-backend,kube-rca-frontend
+  --skills-dir skills
 ```
 
 Read the report to confirm mapped paths, top-level entries, and verified files.

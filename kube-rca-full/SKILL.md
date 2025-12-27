@@ -18,20 +18,22 @@ Kubernetes Root Cause Analysis - Complete System Overview
 │                                 Kubernetes Cluster                                 │
 ├────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                    │
+│                                      ┌─────────────────────┐                       │
+│                                      │      frontend       │                       │
+│                                      │    (RCA list UI)    │                       │
+│                                      └─────────┬───────────┘                       │
+│                                                │ request                           │
+│                                                ▼                                   │
 │ ┌──────────────┐    ┌──────────────┐    ┌────────────────────┐    ┌──────────────┐ │
-│ │  Prometheus  │ ─▶ │ Alertmanager │ ─▶ │  kube-rca-backend  │ ─▶ │    Slack     │ │
+│ │  Prometheus  │ ─▶ │ Alertmanager │ ─▶ │      backend       │ ─▶ │    Slack     │ │
 │ └──────────────┘    └──────────────┘    └─────────┬──────────┘    └──────────────┘ │
 │                                                   │ request                        │
 │                                                   ▼                                │
 │                                           ┌──────────────┐                         │
-│                                           │    agent     │                         │
+│                                           │     agent    │                         │
 │                                           └───────┬──────┘                         │
-│                                                   ▲ result                         │
 │                                                   │                                │
-│          agent queries: Prometheus (PromQL), Grafana, Cluster Components           │
-│ ┌──────────────┐    ┌──────────────┐    ┌──────────────┐                           │
-│ │    Alloy     │ ─▶ │     Loki     │ ─▶ │   Grafana    │                           │
-│ └──────────────┘    └──────────────┘    └──────────────┘                           │
+│                         queries: K8s API, Prometheus (PromQL)                      │
 │                                                                                    │
 └────────────────────────────────────────────────────────────────────────────────────┘
 
@@ -51,7 +53,7 @@ kube-rca/
 ├── helm-charts/      # Helm charts (Argo CD, kube-prometheus-stack, Loki, PostgreSQL, kube-rca)
 ├── k8s-resources/    # Argo CD Applications, External Secrets
 ├── terraform/        # Terraform Cloud envs (terraform/envs/dev/)
-├── agent/            # Go 1.22 + Gin API server (Analysis service)
+├── agent/            # Python FastAPI analysis service
 ├── skills/           # Agent skill definitions
 └── .github/          # Docs and diagrams
 ```
@@ -63,14 +65,13 @@ kube-rca/
 2. **Alertmanager** evaluates rules and groups alerts.
 3. **Backend API** receives webhook and sends the initial Slack notification.
 4. **Backend API** calls `agent/` with the alert payload.
-5. **Agent** analyzes the alert by querying Prometheus (PromQL), Grafana, and
-   in-cluster components, then returns the RCA result to the backend.
+5. **Agent** analyzes the alert via K8s API and Prometheus (PromQL), then
+   returns the RCA result to the backend.
 6. **Backend API** sends the analysis result to Slack.
 
-### Log Flow
-1. **Alloy** collects container logs.
-2. **Loki** stores and indexes logs.
-3. **Grafana** provides query interface.
+### Frontend Flow
+1. **Frontend** requests RCA list from backend (`/api/rca` in client code).
+2. **Backend** should provide RCA list endpoints (currently `/api/v1/incidents`).
 
 ### Deployment Flow
 1. **GitHub Actions** builds container image.
@@ -92,9 +93,13 @@ kube-rca/
 ### Backend
 - `SLACK_BOT_TOKEN` - Slack API token
 - `SLACK_CHANNEL_ID` - Target channel
+- `AGENT_URL` - Agent base URL (default: `http://kube-rca-agent.kube-rca.svc:8000`)
+- `DATABASE_URL` or `PG*` - PostgreSQL connection
 
 ### Agent
-- `PORT` - Service port (default: 8082)
+- `PORT` - Service port (default: 8000)
+- `GEMINI_API_KEY` - Gemini API key (required)
+- `GEMINI_MODEL_ID` - Gemini model ID (default: `gemini-3-flash-preview`)
 
 ## Quick Commands
 
@@ -109,7 +114,8 @@ cd frontend && npm run dev
 cd frontend && npm run build && npm run lint
 
 # Agent
-cd agent && go mod tidy && go run .
+cd agent && make install
+cd agent && make run
 
 # Infra (requires credentials/workspace access)
 cd terraform/envs/dev/iam && terraform init && terraform plan

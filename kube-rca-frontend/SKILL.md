@@ -8,37 +8,63 @@ description: |
 
 # Kube-RCA Frontend
 
-Frontend application for Kubernetes Root Cause Analysis dashboard.
+Frontend application for Kubernetes Root Cause Analysis (RCA) dashboard.
 
 ## Project Structure
 
 ```
 frontend/
-├── README.md
-└── LICENSE
+├── Dockerfile
+├── index.html
+├── package.json
+├── tailwind.config.js
+├── postcss.config.js
+├── tsconfig.json
+├── vite.config.ts
+└── src/
+    ├── main.tsx
+    ├── App.tsx
+    ├── index.css
+    ├── types.ts
+    ├── components/
+    │   ├── RCATable.tsx
+    │   ├── TimeRangeSelector.tsx
+    │   └── Pagination.tsx
+    ├── constants/
+    │   └── index.ts
+    └── utils/
+        ├── api.ts
+        ├── filterAlerts.ts
+        └── mockData.ts
 ```
 
-## Status
+## Key UI Flow
 
-Currently in initial state. Future development planned.
+- `App.tsx` loads RCA list via `fetchRCAs()` and paginates results.
+- If fetch fails in dev mode, `mockData.ts` provides fallback rows.
+- `filterAlerts.ts` filters rows by time range selection.
 
-## Planned Features
+## API Integration
 
-- Alert dashboard with real-time updates
-- RCA visualization
-- Slack integration status
-- Kubernetes cluster overview
+- Base URL: `VITE_API_BASE_URL` or fallback
+  - dev: `http://localhost:8080`
+  - prod: `http://kube-rca-backend:8080`
+- Endpoints used in `src/utils/api.ts`:
+  - `GET /api/rca`
+  - `GET /api/rca/:id`
 
-## Integration Points
+If backend responses differ, update `src/utils/api.ts` parsing logic.
 
-- Backend API: `http://backend:8080`
-  - `GET /ping` - Health check
-  - `POST /webhook/alertmanager` - Alert webhook (internal)
+## Environment Variables
 
-## Development Guidelines
+```bash
+VITE_API_BASE_URL=http://kube-rca-backend:8080
+```
 
-When implementing:
-1. Use TypeScript for type safety
-2. Follow React best practices
-3. Implement responsive design
-4. Consider accessibility (WCAG 2.1 AA)
+## Development Commands
+
+```bash
+cd frontend && npm ci
+cd frontend && npm run dev
+cd frontend && npm run build && npm run lint
+```
