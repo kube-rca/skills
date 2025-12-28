@@ -30,7 +30,7 @@ signals only to label what is already built, not to block target design.
 ## Files to Update
 
 - .github/diagrams/system_context_diagram.md
-- .github/diagrams/sequence_diagram.md
+- .github/diagrams/alert_analysis_sequence_diagram.md
 - .github/diagrams/login_sequence_diagram.md
 - .github/diagrams/entity_relationship_diagram.md
 - .github/README.md
@@ -45,7 +45,7 @@ signals only to label what is already built, not to block target design.
 3. Update each diagram:
    - .github/diagrams/system_context_diagram.md: show target services and
      external systems; label planned components.
-   - .github/diagrams/sequence_diagram.md: reflect target flow; label planned
+   - .github/diagrams/alert_analysis_sequence_diagram.md: reflect target flow; label planned
      steps or integrations.
    - .github/diagrams/login_sequence_diagram.md: reflect implemented auth flow.
    - .github/diagrams/entity_relationship_diagram.md: include target data
