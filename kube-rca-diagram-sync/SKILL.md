@@ -20,15 +20,18 @@ signals only to label what is already built, not to block target design.
 
 - .github/PROJECT.md for goals, scope, and roadmap (to-be)
 - .github/ARCHITECTURE.md for current runtime flow (as-is)
-- backend/main.go and backend/internal/ for implemented endpoints and Slack integration
+- backend/main.go + backend/internal/handler/* for endpoints (auth/incidents/embeddings)
+- backend/internal/service/auth.go for token flow
 - agent/app/main.py and agent/app/api/ for analysis service endpoints
-- frontend/src/App.tsx for whether UI uses mock data or backend APIs
+- agent/app/services/analysis.py for analysis flow and fallback behavior
+- frontend/src/App.tsx + frontend/src/utils/auth.ts + frontend/src/utils/api.ts for auth/UI flow
 - helm-charts/ and k8s-resources/ when diagrams cover deployment topology
 
 ## Files to Update
 
 - .github/diagrams/system_context_diagram.md
 - .github/diagrams/sequence_diagram.md
+- .github/diagrams/login_sequence_diagram.md
 - .github/diagrams/entity_relationship_diagram.md
 - .github/README.md
 - .github/PROJECT.md
@@ -44,6 +47,7 @@ signals only to label what is already built, not to block target design.
      external systems; label planned components.
    - .github/diagrams/sequence_diagram.md: reflect target flow; label planned
      steps or integrations.
+   - .github/diagrams/login_sequence_diagram.md: reflect implemented auth flow.
    - .github/diagrams/entity_relationship_diagram.md: include target data
      models; label planned storage if not implemented.
 4. Update .github/README.md and .github/PROJECT.md to clarify to-be scope.

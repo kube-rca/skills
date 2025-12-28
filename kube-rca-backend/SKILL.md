@@ -2,19 +2,18 @@
 name: kube-rca-backend
 description: |
   Use when working on Go backend code for kube-rca project.
-  Triggers: Alertmanager webhook, Slack client, alert processing,
+  Triggers: Alertmanager webhook, Slack client, auth flow, incident/embedding APIs,
   Go API development, gin framework, internal/ directory, go.mod changes,
   handler/service/client/model layers, thread management, agent client,
   PostgreSQL database connection.
   Korean triggers: 백엔드, 백엔드 로직, 백엔드 설명, 백엔드 구조, 백엔드 코드,
-  Go 코드, 핸들러, 서비스 레이어, 알림 처리, 슬랙 클라이언트, 에이전트 클라이언트.
+  Go 코드, 핸들러, 서비스 레이어, 알림 처리, 슬랙 클라이언트, 에이전트 클라이언트, 인증.
 ---
 
 # Kube-RCA Backend
 
-Go-based backend service for Kubernetes Root Cause Analysis.
-Receives Alertmanager webhooks, forwards alerts to Slack with thread management,
-and integrates with AI Agent for root cause analysis.
+Go 기반 Backend 서비스로 Alertmanager 웹훅 수신, Slack 알림 전송,
+Agent 분석 요청, 인증(JWT+Refresh), Incident/Embedding API를 제공합니다.
 
 ## Project Structure
 
@@ -22,24 +21,38 @@ and integrates with AI Agent for root cause analysis.
 backend/
 ├── main.go                      # Entry point, DI setup, router config
 ├── internal/
+│   ├── config/
+│   │   └── config.go            # Env config loader
 │   ├── handler/
 │   │   ├── alert.go             # POST /webhook/alertmanager
+│   │   ├── auth.go              # /api/v1/auth/*
+│   │   ├── embedding.go         # POST /api/v1/embeddings
 │   │   ├── health.go            # GET /ping, GET /
+│   │   ├── middleware.go        # Auth/CORS middleware
+│   │   ├── openapi.go           # GET /openapi.json
 │   │   └── rca.go               # /api/v1/incidents*
 │   ├── service/
 │   │   ├── alert.go             # Alert filtering, Slack 전송
 │   │   ├── agent.go             # Agent 분석 요청 및 Slack 응답 처리
+│   │   ├── auth.go              # JWT/refresh token auth
+│   │   ├── embedding.go         # Embedding orchestration
 │   │   └── rca.go               # Incident 조회/수정
 │   ├── client/
+│   │   ├── agent.go             # Agent HTTP client (POST /analyze)
+│   │   ├── genai.go             # Gemini embedding client
 │   │   ├── slack.go             # Slack API client, thread management
-│   │   ├── slack_alert.go       # Alert-specific Slack formatting
-│   │   └── agent.go             # Agent HTTP client (POST /analyze)
+│   │   └── slack_alert.go       # Alert-specific Slack formatting
 │   ├── db/
-│   │   ├── postgres.go          # PostgreSQL connection pool (pgxpool)
+│   │   ├── auth.go              # users/refresh_tokens schema + queries
+│   │   ├── embedding.go         # embeddings insert
+│   │   ├── postgres.go          # PostgreSQL connection pool
 │   │   └── rca.go               # Incident queries
 │   └── model/
 │       ├── alert.go             # AlertmanagerWebhook, Alert structs
+│       ├── auth.go              # Auth DTOs
+│       ├── embedding.go         # Embedding DTOs
 │       └── rca.go               # Incident DTOs
+├── docs/                        # Generated OpenAPI (swagger)
 ├── go.mod
 └── Dockerfile
 ```
@@ -49,7 +62,7 @@ backend/
 **Dependency Flow**: `handler → service → client/db`
 
 **Initialization Order**:
-- `db pool → rca service → rca handler`
+- `db pool → auth/rca/embedding service → handlers`
 - `client → service → handler`
 
 ## Key Components
@@ -60,45 +73,62 @@ backend/
 - Delegates to AlertService for processing
 
 ### Alert Service
-- Filters alerts (shouldSendToSlack)
+- Filters alerts (`shouldSendToSlack`)
 - Coordinates with SlackClient for delivery
 - Triggers AgentService asynchronously (goroutine per alert)
 - Returns sent/failed counts
 
 ### Agent Service
-- Invoked in goroutine; performs sync AgentClient.RequestAnalysis
-- Sends analysis result to Slack thread via SlackClient.SendToThread
-
-### Agent Client
-- HTTP client for Agent service communication
-- Endpoint: `POST /analyze`
-- Timeout: 120s (AI 분석 시간 고려)
+- AlertService에서 goroutine으로 호출 (알림 단위 비동기 처리)
+- AgentClient가 `POST /analyze` 동기 호출 (timeout 120s)
+- 분석 결과를 Slack 스레드에 전송
 
 ### Slack Client
-- Uses Bot Token (not webhook) for thread_ts support
-- Manages fingerprint → thread_ts mapping via sync.Map
-- Enables threaded conversations for firing/resolved alerts
+- Bot token 기반 `chat.postMessage` 사용 (thread_ts 필요)
+- fingerprint → thread_ts 매핑을 `sync.Map`에 보관/삭제
+- firing/resolved/분석 결과를 동일 스레드에 전송
 
 ### PostgreSQL Connection
-- Uses pgxpool for connection pooling
-- Supports DATABASE_URL or individual PG* env vars
-- Backend starts after successful DB ping (missing envs cause startup failure)
+- `pgxpool` 기반 연결, `DATABASE_URL` 또는 `PG*` 조합 사용
+- `NewPostgresPool`에서 Ping 성공 시 서비스 시작
+- `DATABASE_URL` 미설정 시 `PGUSER/PGDATABASE` 누락이면 오류
+
+### Auth Service
+- 엔드포인트:
+  - `POST /api/v1/auth/register`
+  - `POST /api/v1/auth/login`
+  - `POST /api/v1/auth/refresh`
+  - `POST /api/v1/auth/logout`
+  - `GET /api/v1/auth/config`
+  - `GET /api/v1/auth/me`
+- JWT Access Token + Refresh Token Cookie(`kube_rca_refresh`)
+- 시작 시 users/refresh_tokens 스키마 생성 및 admin 계정 보장
 
 ### RCA API Handler
 - `GET /api/v1/incidents`
 - `GET /api/v1/incidents/:id`
 - `PUT /api/v1/incidents/:id`
-- `POST /api/v1/incidents/mock` (creates mock incident)
+- `POST /api/v1/incidents/mock`
+
+### Embedding API Handler
+- `POST /api/v1/embeddings`
+- Gemini Embedding(`text-embedding-004`)으로 벡터 생성 후 pgvector에 저장
+
+### OpenAPI
+- `GET /openapi.json` (backend/docs 기반)
 
 ## Environment Variables
 
 ```bash
 # Slack
-SLACK_BOT_TOKEN=xoxb-...    # Slack Bot Token
-SLACK_CHANNEL_ID=C...       # Target channel ID
+SLACK_BOT_TOKEN=xoxb-...
+SLACK_CHANNEL_ID=C...
 
 # Agent
-AGENT_URL=http://kube-rca-agent.kube-rca.svc:8000  # Agent service URL
+AGENT_URL=http://kube-rca-agent.kube-rca.svc:8000
+
+# Embedding (Gemini)
+AI_API_KEY=...  # Gemini API key (필수)
 
 # Database
 DATABASE_URL=postgres://user:pass@host:port/dbname?sslmode=disable
@@ -109,6 +139,19 @@ PGUSER=...
 PGPASSWORD=...
 PGDATABASE=...
 PGSSLMODE=disable
+
+# Auth
+JWT_SECRET=...           # 필수
+JWT_ACCESS_TTL=15m
+JWT_REFRESH_TTL=168h
+ALLOW_SIGNUP=false
+ADMIN_USERNAME=...
+ADMIN_PASSWORD=...
+AUTH_COOKIE_SECURE=true
+AUTH_COOKIE_SAMESITE=Lax
+AUTH_COOKIE_DOMAIN=
+AUTH_COOKIE_PATH=/
+CORS_ALLOWED_ORIGINS=https://example.com,https://app.example.com
 ```
 
 ## Key Patterns
@@ -142,4 +185,7 @@ go s.agentService.RequestAnalysis(alert, threadTS)
 
 - `gin-gonic/gin` - HTTP router
 - `jackc/pgx/v5` - PostgreSQL driver
-- Go 1.22+
+- `github.com/golang-jwt/jwt/v5` - JWT auth
+- `google.golang.org/genai` - Gemini embeddings
+- `pgvector-go` - Vector insert for PostgreSQL
+- Go 1.24+

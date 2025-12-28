@@ -3,7 +3,7 @@ name: kube-rca-frontend
 description: |
   Use when working on frontend code for kube-rca project.
   Triggers: React components, UI development, dashboard,
-  alert visualization, frontend/ directory changes.
+  auth/login flow, alert visualization, frontend/ directory changes.
 ---
 
 # Kube-RCA Frontend
@@ -20,6 +20,7 @@ frontend/
 ├── tailwind.config.js
 ├── postcss.config.js
 ├── tsconfig.json
+├── tsconfig.node.json
 ├── vite.config.ts
 └── src/
     ├── main.tsx
@@ -27,6 +28,8 @@ frontend/
     ├── index.css
     ├── types.ts
     ├── components/
+    │   ├── AuthPanel.tsx
+    │   ├── RCADetailView.tsx
     │   ├── RCATable.tsx
     │   ├── TimeRangeSelector.tsx
     │   └── Pagination.tsx
@@ -34,26 +37,32 @@ frontend/
     │   └── index.ts
     └── utils/
         ├── api.ts
-        ├── filterAlerts.ts
-        └── mockData.ts
+        ├── auth.ts
+        ├── config.ts
+        └── filterAlerts.ts
 ```
 
 ## Key UI Flow
 
-- `App.tsx` loads RCA list via `fetchRCAs()` and paginates results.
-- If fetch fails in dev mode, `mockData.ts` provides fallback rows.
-- `filterAlerts.ts` filters rows by time range selection.
+- `App.tsx` 시작 시 `/api/v1/auth/config`와 `/api/v1/auth/refresh`로 인증 상태를 초기화합니다.
+- 인증 전에는 `AuthPanel`에서 로그인/회원가입을 수행합니다.
+- 인증 후 `fetchRCAs()`로 Incident 목록을 로딩하고 상세 화면(`RCADetailView`)을 제공합니다.
+- 401 응답 시 refresh 토큰으로 1회 재시도합니다.
 
 ## API Integration
 
-- Base URL: `VITE_API_BASE_URL` or fallback
-  - dev: `http://localhost:8080`
-  - prod: `http://kube-rca-backend:8080`
-- Endpoints used in `src/utils/api.ts`:
-  - `GET /api/rca`
-  - `GET /api/rca/:id`
+- Base URL: `VITE_API_BASE_URL` (없으면 동일 오리진 `''` 사용)
+- Endpoints used in `src/utils/*.ts`:
+  - `POST /api/v1/auth/login`
+  - `POST /api/v1/auth/register`
+  - `POST /api/v1/auth/refresh`
+  - `POST /api/v1/auth/logout`
+  - `GET /api/v1/auth/config`
+  - `GET /api/v1/incidents`
+  - `GET /api/v1/incidents/:id`
+  - `PUT /api/v1/incidents/:id`
 
-If backend responses differ, update `src/utils/api.ts` parsing logic.
+`requestWithAuth`가 `Authorization: Bearer <token>` 헤더와 `credentials: include`를 사용합니다.
 
 ## Environment Variables
 

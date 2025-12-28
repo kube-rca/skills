@@ -1,15 +1,16 @@
 ---
 name: kube-rca-agent
 description: |
-  Python FastAPI-based analysis service for Kube-RCA. Receives Alertmanager payloads,
-  performs RCA via Strands Agents (Gemini) and Kubernetes APIs, and returns results.
-  Triggers: agent/ directory, app/ layers, pyproject.toml, Dockerfile, FastAPI endpoints.
+  Python FastAPI-based analysis service for Kube-RCA. Receives Alertmanager payloads
+  from the backend, gathers Kubernetes/Prometheus context, runs Strands Agents (Gemini),
+  and returns RCA summaries. Triggers: agent/ directory, app/ layers, pyproject.toml,
+  Dockerfile, FastAPI endpoints, Makefile.
 ---
 
 # Kube-RCA Agent
 
 Python FastAPI 기반 분석 서비스로, Backend에서 전달받은 Alertmanager webhook payload를
-Strands Agents(Gemini LLM)와 Kubernetes API를 활용해 분석하고 결과를 반환합니다.
+Kubernetes/Prometheus 컨텍스트와 Strands Agents(Gemini)를 활용해 분석하고 결과를 반환합니다.
 
 ## Project Structure
 
@@ -17,50 +18,52 @@ Strands Agents(Gemini LLM)와 Kubernetes API를 활용해 분석하고 결과를
 agent/
 ├── app/
 │   ├── api/
-│   │   ├── analysis.py          # POST /analyze endpoint
-│   │   └── health.py            # GET /ping, /healthz, / endpoints
+│   │   ├── analysis.py          # POST /analyze
+│   │   └── health.py            # GET /ping, /healthz, /
 │   ├── clients/
-│   │   ├── k8s.py               # Kubernetes API client (CoreV1, AppsV1, BatchV1, CustomObjects)
+│   │   ├── k8s.py               # Kubernetes API client
 │   │   ├── prometheus.py        # Prometheus instant query client
-│   │   ├── strands_agent.py     # Strands Agent wrapper with 13 tools
+│   │   ├── strands_agent.py     # Strands Agent wrapper (13 tools)
 │   │   └── strands_patch.py     # Gemini thought signature patch
 │   ├── core/
 │   │   ├── config.py            # Settings dataclass (env vars)
 │   │   ├── dependencies.py      # FastAPI DI (lru_cache singletons)
 │   │   └── logging.py           # Logging configuration
 │   ├── models/
-│   │   └── k8s.py               # Domain models (PodStatusSnapshot, K8sContext, etc.)
+│   │   └── k8s.py               # Domain models (K8sContext, PodStatusSnapshot, ...)
 │   ├── schemas/
 │   │   ├── alert.py             # Alert Pydantic schema
 │   │   └── analysis.py          # Request/Response schemas
 │   ├── services/
 │   │   └── analysis.py          # Analysis orchestration service
 │   └── main.py                  # FastAPI app entrypoint
-├── tests/
-│   └── test_analysis_service.py # Unit tests with fake clients
+├── docs/
+│   └── openapi.json             # Generated OpenAPI document
 ├── scripts/
 │   ├── curl-test-oomkilled.sh   # OOMKilled test automation
 │   ├── curl-test-crashloop.sh   # CrashLoopBackOff test automation
-│   └── curl-test-imagepull.sh   # ImagePullBackOff test automation
+│   ├── curl-test-imagepull.sh   # ImagePullBackOff test automation
+│   └── export_openapi.py        # OpenAPI export helper
+├── tests/
+│   └── test_analysis_service.py # Unit tests with fake clients
 ├── Dockerfile                   # Python 3.12-slim + uv
-├── Makefile                     # Development/test automation
+├── Makefile                     # Dev/test automation
 ├── pyproject.toml               # Dependencies (hatchling build)
-└── README.md
+└── uv.lock
 ```
 
 ## Technology Stack
 
 | Category | Technology | Version |
 |----------|------------|---------|
-| Language | Python | 3.10+ |
-| Framework | FastAPI + Uvicorn | 0.115+ |
-| AI Agent | Strands Agents (Gemini) | 1.20+ |
-| Kubernetes | kubernetes-client | 34.x |
-| Validation | Pydantic | 2.4+ |
+| Language | Python | >=3.10 |
+| Framework | FastAPI + Uvicorn | >=0.115.12 / >=0.34.2 |
+| AI Agent | Strands Agents (Gemini) | >=1.20.0 |
+| Kubernetes | kubernetes-client | >=34.0.0 |
+| Validation | Pydantic | >=2.4.0 |
 | Build | Hatchling | - |
-| Linting | Ruff | 0.13+ |
+| Lint/Format | Ruff | >=0.13.0 |
 | Package Manager | uv | - |
-| CI/CD | GitHub Actions | - |
 
 ## Architecture Pattern
 
@@ -76,7 +79,7 @@ agent/
 │  └── analysis.py: AnalysisService (orchestration)               │
 ├─────────────────────────────────────────────────────────────────┤
 │  Client Layer (clients/)                                        │
-│  ├── k8s.py: KubernetesClient (sync, CoreV1/AppsV1/BatchV1)     │
+│  ├── k8s.py: KubernetesClient                                   │
 │  ├── prometheus.py: PrometheusClient (instant query)            │
 │  └── strands_agent.py: StrandsAnalysisEngine (13 tools)         │
 ├─────────────────────────────────────────────────────────────────┤
@@ -92,6 +95,10 @@ agent/
 ```
 
 **Dependency Flow**: `api → service → clients/models → core`
+
+## Key Behavior
+
+- `GEMINI_API_KEY`가 없으면 Strands 분석 엔진을 비활성화하고 fallback 요약을 반환합니다.
 
 ## Key Endpoints
 
@@ -155,7 +162,7 @@ agent/
 |----------|---------|-------------|
 | `PORT` | `8000` | Server port |
 | `LOG_LEVEL` | `info` | Logging level |
-| `GEMINI_API_KEY` | (required) | Gemini API key (from Secret) |
+| `GEMINI_API_KEY` | (optional) | Gemini API key (없으면 fallback 요약) |
 | `GEMINI_MODEL_ID` | `gemini-3-flash-preview` | Gemini model ID |
 | `K8S_API_TIMEOUT_SECONDS` | `5` | Kubernetes API timeout |
 | `K8S_EVENT_LIMIT` | `20` | Max events to fetch |
@@ -168,18 +175,8 @@ agent/
 
 ## Kubernetes RBAC Requirements
 
-Agent는 다음 리소스에 대한 `get`, `list`, `watch` 권한이 필요합니다:
-
-- `pods`, `pods/log` (CoreV1)
-- `events` (CoreV1)
-- `nodes` (CoreV1)
-- `services` (CoreV1)
-- `deployments`, `replicasets`, `statefulsets`, `daemonsets` (AppsV1)
-- `jobs`, `cronjobs` (BatchV1)
-- `pods` (metrics.k8s.io - CustomObjects)
-- `nodes` (metrics.k8s.io - CustomObjects)
-
-Helm chart에서는 `apiGroups: ["*"], resources: ["*"]`로 설정되어 있습니다.
+Agent는 `get`, `list`, `watch` 권한이 필요합니다.
+Helm chart의 ClusterRole은 `apiGroups: ["*"], resources: ["*"]`로 설정되어 있습니다.
 
 ## Development Commands
 
@@ -190,9 +187,6 @@ make install
 
 # Run locally
 make run  # PORT=8000
-
-# Run with custom port
-PORT=8082 make run
 
 # Lint
 make lint
@@ -241,7 +235,7 @@ Agent는 `helm-charts/charts/kube-rca/templates/agent/` 아래에 배포됩니�
 - `deployment.yaml`: Agent Deployment
 - `service.yaml`: ClusterIP Service
 - `serviceaccount.yaml`: ServiceAccount
-- `clusterrole.yaml`: ClusterRole (read-only cluster-wide)
+- `clusterrole.yaml`: ClusterRole (get/list/watch)
 - `clusterrolebinding.yaml`: ClusterRoleBinding
 - `configmap.yaml`: Agent configuration
 - `secret.yaml`: Gemini API key Secret

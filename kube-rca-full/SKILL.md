@@ -18,22 +18,27 @@ Kubernetes Root Cause Analysis - Complete System Overview
 │                                 Kubernetes Cluster                                 │
 ├────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                    │
-│                                      ┌─────────────────────┐                       │
-│                                      │      frontend       │                       │
-│                                      │    (RCA list UI)    │                       │
-│                                      └─────────┬───────────┘                       │
-│                                                │ request                           │
-│                                                ▼                                   │
-│ ┌──────────────┐    ┌──────────────┐    ┌────────────────────┐    ┌──────────────┐ │
-│ │  Prometheus  │ ─▶ │ Alertmanager │ ─▶ │      backend       │ ─▶ │    Slack     │ │
-│ └──────────────┘    └──────────────┘    └─────────┬──────────┘    └──────────────┘ │
-│                                                   │ request                        │
-│                                                   ▼                                │
-│                                           ┌──────────────┐                         │
-│                                           │     agent    │                         │
-│                                           └───────┬──────┘                         │
-│                                                   │                                │
-│                         queries: K8s API, Prometheus (PromQL)                      │
+│  ┌─────────────────────┐        ┌────────────────────┐        ┌──────────────┐     │
+│  │      frontend       │ ─────▶ │      backend       │ ─────▶ │    Slack     │     │
+│  │  (auth + RCA UI)    │        │  (auth/rca/alert)  │        └──────────────┘     │
+│  └─────────┬───────────┘        └─────────┬──────────┘                             │
+│            │                              │                                        │
+│            ▼                              ▼                                        │
+│     ┌──────────────┐                ┌──────────────┐                               │
+│     │ PostgreSQL   │                │     agent    │                               │
+│     │ incidents    │                │  (FastAPI)   │                               │
+│     │ auth/embeds  │                └───────┬──────┘                               │
+│     └──────────────┘                        │                                      │
+│                                             │ queries: K8s API, Prometheus         │
+│                                             ▼                                      │
+│                                      ┌──────────────┐                              │
+│                                      │   Gemini     │                              │
+│                                      │ (LLM/Embed)  │                              │
+│                                      └──────────────┘                              │
+│                                                                                    │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐                          │
+│  │  Prometheus  │ ─▶ │ Alertmanager │ ── webhook ──▶ │   backend    │              │
+│  └──────────────┘    └──────────────┘    └──────────────┘                          │
 │                                                                                    │
 └────────────────────────────────────────────────────────────────────────────────────┘
 
@@ -48,9 +53,9 @@ Kubernetes Root Cause Analysis - Complete System Overview
 
 ```text
 kube-rca/
-├── backend/          # Go 1.22 + Gin API server (Alertmanager webhook -> Slack)
+├── backend/          # Go 1.24 + Gin API server (Alertmanager webhook -> Slack)
 ├── frontend/         # React 18 + TypeScript + Vite + Tailwind CSS
-├── helm-charts/      # Helm charts (Argo CD, kube-prometheus-stack, Loki, PostgreSQL, kube-rca)
+├── helm-charts/      # Helm charts (Argo CD, kube-prometheus-stack, Loki, PostgreSQL, ingress-nginx, kube-rca)
 ├── k8s-resources/    # Argo CD Applications, External Secrets
 ├── terraform/        # Terraform Cloud envs (terraform/envs/dev/)
 ├── agent/            # Python FastAPI analysis service
@@ -65,13 +70,22 @@ kube-rca/
 2. **Alertmanager** evaluates rules and groups alerts.
 3. **Backend API** receives webhook and sends the initial Slack notification.
 4. **Backend API** calls `agent/` with the alert payload.
-5. **Agent** analyzes the alert via K8s API and Prometheus (PromQL), then
-   returns the RCA result to the backend.
-6. **Backend API** sends the analysis result to Slack.
+5. **Agent** analyzes the alert via K8s API and Prometheus, then returns results.
+6. **Backend API** sends the analysis result to the Slack thread.
+
+### Auth Flow
+1. **Frontend** calls `/api/v1/auth/config` and `/api/v1/auth/refresh` to initialize auth.
+2. **Login/Register** via `/api/v1/auth/login|register` returns access token and sets refresh cookie.
+3. **Protected APIs** use `Authorization: Bearer <token>` and refresh cookie on 401.
+4. **Logout** revokes refresh token and clears cookie (`/api/v1/auth/logout`).
 
 ### Frontend Flow
-1. **Frontend** requests RCA list from backend (`/api/rca` in client code).
-2. **Backend** should provide RCA list endpoints (currently `/api/v1/incidents`).
+1. **Frontend** requests RCA list from backend (`GET /api/v1/incidents`).
+2. **Frontend** requests incident detail (`GET /api/v1/incidents/:id`) and updates (`PUT /api/v1/incidents/:id`).
+
+### Embedding Flow
+1. **Backend** receives `POST /api/v1/embeddings`.
+2. **Backend** calls Gemini embedding API and stores vectors in PostgreSQL (pgvector).
 
 ### Deployment Flow
 1. **GitHub Actions** builds container image.
@@ -87,6 +101,7 @@ kube-rca/
 | helm-charts | frontend | `charts/kube-rca` requires frontend image repository/tag values for the Deployment. |
 | helm-charts | agent | `charts/kube-rca` requires agent image repository/tag values for the Deployment. |
 | helm-charts | k8s-resources | Backend Slack Secret defaults to `kube-rca-slack` with keys `kube-rca-slack-token`, `kube-rca-slack-channel-id`. |
+| helm-charts | k8s-resources | Backend auth Secret keys: `admin-username`, `admin-password`, `kube-rca-jwt-secret`. |
 
 ## Environment Variables
 
@@ -94,12 +109,24 @@ kube-rca/
 - `SLACK_BOT_TOKEN` - Slack API token
 - `SLACK_CHANNEL_ID` - Target channel
 - `AGENT_URL` - Agent base URL (default: `http://kube-rca-agent.kube-rca.svc:8000`)
+- `AI_API_KEY` - Gemini API key for embeddings (required)
 - `DATABASE_URL` or `PG*` - PostgreSQL connection
+- `JWT_SECRET` - JWT signing secret (required)
+- `JWT_ACCESS_TTL`, `JWT_REFRESH_TTL`
+- `ALLOW_SIGNUP`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`
+- `AUTH_COOKIE_SECURE`, `AUTH_COOKIE_SAMESITE`, `AUTH_COOKIE_DOMAIN`, `AUTH_COOKIE_PATH`
+- `CORS_ALLOWED_ORIGINS`
 
 ### Agent
 - `PORT` - Service port (default: 8000)
-- `GEMINI_API_KEY` - Gemini API key (required)
+- `GEMINI_API_KEY` - Gemini API key (optional, 없으면 fallback)
 - `GEMINI_MODEL_ID` - Gemini model ID (default: `gemini-3-flash-preview`)
+- `K8S_API_TIMEOUT_SECONDS`, `K8S_EVENT_LIMIT`, `K8S_LOG_TAIL_LINES`
+- `PROMETHEUS_LABEL_SELECTOR`, `PROMETHEUS_NAMESPACE_ALLOWLIST`, `PROMETHEUS_PORT_NAME`
+- `PROMETHEUS_SCHEME`, `PROMETHEUS_HTTP_TIMEOUT_SECONDS`
+
+### Frontend
+- `VITE_API_BASE_URL` - Backend base URL (없으면 동일 오리진)
 
 ## Quick Commands
 
