@@ -45,8 +45,8 @@ backend/
 │   ├── db/
 │   │   ├── auth.go              # users/refresh_tokens schema + queries
 │   │   ├── embedding.go         # embeddings insert
-│   │   ├── postgres.go          # PostgreSQL connection pool
-│   │   └── rca.go               # Incident queries
+│   │   ├── incidents.go         # Incident CRUD, thread_ts, analysis 저장
+│   │   └── postgres.go          # PostgreSQL connection pool
 │   └── model/
 │       ├── alert.go             # AlertmanagerWebhook, Alert structs
 │       ├── auth.go              # Auth DTOs
@@ -73,7 +73,10 @@ backend/
 - Delegates to AlertService for processing
 
 ### Alert Service
-- Filters alerts (`shouldSendToSlack`)
+- Filters alerts (`shouldSendToSlack`) - info severity 제외
+- 알림을 DB에 저장 (incidents 테이블)
+- resolved 상태면 resolved_at 업데이트
+- thread_ts를 DB에 저장/조회 (백엔드 재시작 시 복원용)
 - Coordinates with SlackClient for delivery
 - Triggers AgentService asynchronously (goroutine per alert)
 - Returns sent/failed counts
@@ -81,6 +84,7 @@ backend/
 ### Agent Service
 - AlertService에서 goroutine으로 호출 (알림 단위 비동기 처리)
 - AgentClient가 `POST /analyze` 동기 호출 (timeout 120s)
+- 분석 결과를 DB에 저장 (analysis_summary, analysis_detail)
 - 분석 결과를 Slack 스레드에 전송
 
 ### Slack Client
@@ -156,23 +160,38 @@ CORS_ALLOWED_ORIGINS=https://example.com,https://app.example.com
 
 ## Key Patterns
 
-### Thread Management
+### Thread Management (DB + Memory 하이브리드)
 ```go
-// Store thread_ts after firing alert
+// firing 후 thread_ts를 메모리와 DB에 저장
 slackClient.StoreThreadTS(fingerprint, response.TS)
+db.UpdateThreadTS(ctx, fingerprint, threadTS)
 
-// Get thread_ts for resolved alert
-threadTS, ok := slackClient.GetThreadTS(fingerprint)
+// resolved 알림 전: DB에서 thread_ts 조회 → 메모리에 복원
+if threadTS, ok := db.GetThreadTS(ctx, fingerprint); ok {
+    slackClient.StoreThreadTS(fingerprint, threadTS)
+}
 
-// Cleanup after resolved
+// resolved 후 메모리에서 삭제 (DB는 유지)
 slackClient.DeleteThreadTS(fingerprint)
 ```
 
 ### Agent Analysis Flow
 ```go
 // AlertService에서 goroutine으로 호출
-threadTS, _ := s.slackClient.GetThreadTS(alert.Fingerprint)
+// DB에서 thread_ts 조회 (메모리 대신 DB 사용)
+threadTS, _ := s.db.GetThreadTS(ctx, alert.Fingerprint)
 go s.agentService.RequestAnalysis(alert, threadTS)
+```
+
+### Alert Filtering
+```go
+func (s *AlertService) shouldSendToSlack(alert model.Alert) bool {
+    // info severity는 필터링 (warning, critical만 전송)
+    if alert.Labels["severity"] == "info" {
+        return false
+    }
+    return true
+}
 ```
 
 ### Alert Status Colors
