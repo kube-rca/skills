@@ -185,6 +185,9 @@ Helm chart의 ClusterRole은 `apiGroups: ["*"], resources: ["*"]`로 설정되�
 cd agent
 make install
 
+# Setup pre-commit hooks (run once after clone)
+pre-commit install
+
 # Run locally
 make run  # PORT=8000
 
@@ -197,9 +200,22 @@ make format
 # Run tests
 make test
 
+# Run pre-commit checks manually
+pre-commit run --all-files
+
 # Build Docker image
 make build IMAGE=<your-image>
 ```
+
+## Pre-commit Hooks
+
+`.pre-commit-config.yaml`에 정의된 hook들:
+
+| Hook | Description |
+|------|-------------|
+| `ruff-format` | Python 코드 포맷 검사 |
+| `ruff-check` | Python 린트 검사 |
+| `export-openapi` | OpenAPI spec 자동 생성 및 변경 감지 |
 
 ## Testing Commands
 

@@ -36,8 +36,28 @@ helm-charts/
   `charts/ingress-nginx/`, `charts/kube-prometheus-stack/`, `charts/kube-rca/`,
   `charts/loki/`, `charts/postgresql/`.
 
-## Validation Command
+## Development Commands
 
 ```bash
-cd helm-charts && helm lint charts/kube-rca
+# Setup pre-commit hooks (run once after clone)
+cd helm-charts
+pre-commit install
+
+# Lint chart
+helm lint charts/kube-rca
+
+# Generate chart docs
+helm-docs -c charts/kube-rca
+
+# Run pre-commit checks manually
+pre-commit run --all-files
 ```
+
+## Pre-commit Hooks
+
+`.pre-commit-config.yaml`에 정의된 hook들:
+
+| Hook | Description |
+|------|-------------|
+| `helm-lint-kube-rca` | Helm chart 린트 검사 |
+| `helm-docs-kube-rca` | Chart README 자동 생성 및 변경 감지 |

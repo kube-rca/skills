@@ -208,3 +208,31 @@ func (s *AlertService) shouldSendToSlack(alert model.Alert) bool {
 - `google.golang.org/genai` - Gemini embeddings
 - `pgvector-go` - Vector insert for PostgreSQL
 - Go 1.24+
+
+## Development Commands
+
+```bash
+# Setup pre-commit hooks (run once after clone)
+cd backend
+pre-commit install
+
+# Run locally
+go run .
+
+# Run tests
+go test ./...
+
+# Format
+go fmt ./...
+
+# Run pre-commit checks manually
+pre-commit run --all-files
+```
+
+## Pre-commit Hooks
+
+`.pre-commit-config.yaml`에 정의된 hook들:
+
+| Hook | Description |
+|------|-------------|
+| `update-openapi` | swag으로 OpenAPI docs 자동 생성 |
