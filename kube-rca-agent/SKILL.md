@@ -41,9 +41,6 @@ agent/
 │   ├── openapi.json             # Generated OpenAPI document
 │   └── session-context-analysis.md # Session context notes
 ├── scripts/
-│   ├── curl-test-oomkilled.sh   # OOMKilled test automation
-│   ├── curl-test-crashloop.sh   # CrashLoopBackOff test automation
-│   ├── curl-test-imagepull.sh   # ImagePullBackOff test automation
 │   └── export_openapi.py        # OpenAPI export helper
 ├── tests/
 │   └── test_analysis_service.py # Unit tests with fake clients
