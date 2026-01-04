@@ -38,7 +38,8 @@ agent/
 │   │   └── analysis.py          # Analysis orchestration service
 │   └── main.py                  # FastAPI app entrypoint
 ├── docs/
-│   └── openapi.json             # Generated OpenAPI document
+│   ├── openapi.json             # Generated OpenAPI document
+│   └── session-context-analysis.md # Session context notes
 ├── scripts/
 │   ├── curl-test-oomkilled.sh   # OOMKilled test automation
 │   ├── curl-test-crashloop.sh   # CrashLoopBackOff test automation
@@ -59,6 +60,7 @@ agent/
 | Language | Python | >=3.10 |
 | Framework | FastAPI + Uvicorn | >=0.115.12 / >=0.34.2 |
 | AI Agent | Strands Agents (Gemini) | >=1.20.0 |
+| Session Store | PostgreSQL (psycopg[binary]) | >=3.2.0 |
 | Kubernetes | kubernetes-client | >=34.0.0 |
 | Validation | Pydantic | >=2.4.0 |
 | Build | Hatchling | - |
@@ -99,6 +101,8 @@ agent/
 ## Key Behavior
 
 - `GEMINI_API_KEY`가 없으면 Strands 분석 엔진을 비활성화하고 fallback 요약을 반환합니다.
+- `GEMINI_API_KEY`를 설정한 경우 `SESSION_DB_HOST`, `SESSION_DB_USER`, `SESSION_DB_NAME`가 필요하며,
+  누락 시 AnalysisEngine 초기화 에러가 발생합니다.
 
 ## Key Endpoints
 
@@ -111,7 +115,7 @@ agent/
 
 ### POST /analyze Request/Response
 
-**Request:**
+**Request (incident_id optional):**
 
 ```json
 {
@@ -124,7 +128,8 @@ agent/
     "generatorURL": "",
     "fingerprint": "abc123"
   },
-  "thread_ts": "1234567890.123456"
+  "thread_ts": "1234567890.123456",
+  "incident_id": "incident-abc123"
 }
 ```
 
@@ -164,6 +169,13 @@ agent/
 | `LOG_LEVEL` | `info` | Logging level |
 | `GEMINI_API_KEY` | (optional) | Gemini API key (없으면 fallback 요약) |
 | `GEMINI_MODEL_ID` | `gemini-3-flash-preview` | Gemini model ID |
+| `SESSION_DB_HOST` | (empty) | Postgres session store host |
+| `SESSION_DB_PORT` | `5432` | Postgres session store port |
+| `SESSION_DB_NAME` | (empty) | Postgres session store database name |
+| `SESSION_DB_USER` | (empty) | Postgres session store user |
+| `SESSION_DB_PASSWORD` | (empty) | Postgres session store password (if required) |
+| `AGENT_CACHE_SIZE` | `128` | Cached agent entries (LRU) |
+| `AGENT_CACHE_TTL_SECONDS` | `0` | Cache TTL seconds (0 = disable TTL) |
 | `K8S_API_TIMEOUT_SECONDS` | `5` | Kubernetes API timeout |
 | `K8S_EVENT_LIMIT` | `20` | Max events to fetch |
 | `K8S_LOG_TAIL_LINES` | `50` | Log tail lines |

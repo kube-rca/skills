@@ -23,7 +23,6 @@ and commands reflect the verified state of the code-kube-rca repositories.
 4. Compare each target `SKILL.md` against the repo context and update only
    verified facts.
 5. Read the updated files to ensure no TODO markers remain.
-6. Record the changes in `LAST_AGENT_RUN.md`.
 
 ## Target Mapping (default, verify before use)
 
@@ -81,4 +80,3 @@ Read the report to confirm mapped paths, top-level entries, and verified files.
 
 - Ensure targets are updated and non-targets are untouched.
 - Ensure no TODO markers remain in modified skills.
-- Ensure `LAST_AGENT_RUN.md` is updated.
