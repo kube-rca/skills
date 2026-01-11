@@ -2,7 +2,7 @@
 name: kube-rca-diagram-sync
 description: |
   Keep Mermaid diagrams under .github/diagrams and the .github docs
-  (.github/README.md, .github/PROJECT.md) aligned with the target
+  (.github/profile/README.md, .github/PROJECT.md) aligned with the target
   code-kube-rca architecture and team goals (to-be).
   Use when revising target architecture, adding planned components,
   or changing integration paths between backend, agent, frontend, and infra.
@@ -33,7 +33,7 @@ signals only to label what is already built, not to block target design.
 - .github/diagrams/alert_analysis_sequence_diagram.md
 - .github/diagrams/login_sequence_diagram.md
 - .github/diagrams/entity_relationship_diagram.md
-- .github/README.md
+- .github/profile/README.md
 - .github/PROJECT.md
 
 ## Diagram Update Workflow
@@ -50,7 +50,7 @@ signals only to label what is already built, not to block target design.
    - .github/diagrams/login_sequence_diagram.md: reflect implemented auth flow.
    - .github/diagrams/entity_relationship_diagram.md: include target data
      models; label planned storage if not implemented.
-4. Update .github/README.md and .github/PROJECT.md to clarify to-be scope.
+4. Update .github/profile/README.md and .github/PROJECT.md to clarify to-be scope.
    - Keep "implemented" versus "planned" clearly separated.
    - Avoid implying planned items are already shipped.
 5. Keep Mermaid syntax valid and fenced as mermaid code blocks.
